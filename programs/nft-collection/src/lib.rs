@@ -24,6 +24,7 @@ declare_id!("7NnjQxQqB4Et5qQQVGDyHYKzCy2iTH24yMb7aB2qV3c6");
 
 #[program]
 pub mod nft_collection {
+
     use super::*;
 
     pub fn create_metadata_account(
@@ -224,6 +225,40 @@ pub mod nft_collection {
             token_metadata_program.to_account_info(),
             collection_authority_record.to_account_info(),
         ]).expect("CPI failed");
+
+        Ok(())
+    }
+
+    pub fn verify_sized_collection(ctx: Context<VerifyCollectionContext>) -> Result<()> {
+        let metadata_account = &ctx.accounts.metadata_account;
+        let collection_authority = &ctx.accounts.collection_authority; 
+        let payer = &ctx.accounts.payer;
+        let collection_mint = &ctx.accounts.collection_mint;
+        let collection_metadata_account = &ctx.accounts.collection_metadata_account;
+        let collection_master_edition_account = &ctx.accounts.collection_master_edition_account;
+
+        let token_metadata_program = &ctx.accounts.token_metadata_program;
+
+            let instruction = mpl_instruction::verify_sized_collection_item(
+                TOKEN_METADATA_ID, 
+                metadata_account.key(), 
+                collection_authority.key(), 
+                payer.key(), 
+                collection_mint.key(), 
+                collection_metadata_account.key(), 
+                collection_master_edition_account.key(), 
+                None,
+            ); 
+            invoke(&instruction, &[
+                metadata_account.to_account_info(),
+                payer.to_account_info(),
+                collection_metadata_account.to_account_info(),
+                collection_authority.to_account_info(),
+                collection_mint.to_account_info(),
+                collection_authority.to_account_info(),
+                token_metadata_program.to_account_info(),
+                collection_master_edition_account.to_account_info(),
+            ]).expect("CPI failed");
 
         Ok(())
     }

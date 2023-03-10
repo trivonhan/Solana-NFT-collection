@@ -108,7 +108,7 @@ pub struct UpdateMetadataAccountContext<'info> {
 }
 
 #[derive(Accounts)]
-pub struct VerifyCollection<'info> {
+pub struct VerifyCollectionContext<'info> {
     
     /// CHECK: Metadata of NFT in the collection need be verified collection
     #[account(mut)]
@@ -117,21 +117,23 @@ pub struct VerifyCollection<'info> {
     /// CHECK: Collection Update authority
     pub collection_authority: Signer<'info>,
 
+    #[account(mut)]
     pub payer: Signer<'info>,
 
     /// CHECK: Mint of the Collection (mint of first NFT in collection)
-    #[account(mut)]
     pub collection_mint: AccountInfo<'info>,
-
-    /// CHECK: Metadata account of the Collection (metadata of first NFT in collection)
     #[account(mut)]
+    /// CHECK: Metadata account of the Collection (metadata of first NFT in collection)
     pub collection_metadata_account: AccountInfo<'info>,
 
     /// CHECK: Master edition account of the Collection (master edition of first NFT in collection)
-    #[account(mut)]
     pub collection_master_edition_account: AccountInfo<'info>,
 
-    pub system_program: Program<'info, System>,
+    /// CHECK: PDA of the collection authority record
+    // #[account(mut)]
+    // pub collection_authority_record: Option<AccountInfo<'info>>,
+
+    // pub system_program: Program<'info, System>,
 
     /// CHECK: Metaplex will check this (TOKEN METADATA PROGRAM ID)
     pub token_metadata_program: AccountInfo<'info>,

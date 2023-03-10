@@ -13,7 +13,7 @@ describe("nft-collection", () => {
   anchor.setProvider(anchor.AnchorProvider.env());
 
   const program = anchor.workspace.NftCollection as Program<NftCollection>;
-  const connection = new Connection('http://localhost:8899', 'confirmed');
+  const connection = new Connection('https://api.devnet.solana.com', 'confirmed');
   const TOKEN_METADATA_PROGRAM_ID = new anchor.web3.PublicKey(
     "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
   );
@@ -24,13 +24,14 @@ describe("nft-collection", () => {
   let metadataAccount: anchor.web3.PublicKey;
   let rootATA:  Account;
   let collectionAuthorityRecord: anchor.web3.PublicKey;
+  let masterEditionAccount: anchor.web3.PublicKey;
 
   // Second user public key and keypair
   let user2: anchor.web3.Keypair;
   let user2ATA: Account;
   let user2Mint: anchor.web3.PublicKey;
   let user2MetadataAccount: anchor.web3.PublicKey;
-
+  let nft2MasterEditionAccount : anchor.web3.PublicKey;
   before(async () => {
     
     // Get root address
@@ -116,7 +117,7 @@ describe("nft-collection", () => {
   });
 
   it('Create master edition account', async ()=> {
-    const masterEditionAccount = findProgramAddressSync(
+    masterEditionAccount = findProgramAddressSync(
       [
         Buffer.from('metadata'),
         TOKEN_METADATA_PROGRAM_ID.toBuffer(),
@@ -127,7 +128,7 @@ describe("nft-collection", () => {
     )[0];
     console.log('Master edition account: ', masterEditionAccount.toBase58());
 
-    const masterEditionAccountTx = await program.methods.createMasterEditionAccount(new anchor.BN(3)).accounts({
+    const masterEditionAccountTx = await program.methods.createMasterEditionAccount(new anchor.BN(0)).accounts({
       masterEditionAccount,
       metadataAccount, 
       mint,
@@ -143,41 +144,41 @@ describe("nft-collection", () => {
 
   });
 
-  it('Update metadata account', async () => {
-    const updateMetadataAccountTx = await program.methods.updateMetadataAccount(
-      root.publicKey,
-      {
-        symbol: 'UFT1',
-        uri: "https://raw.githubusercontent.com/Coding-and-Crypto/Solana-NFT-Marketplace/master/assets/example.json",
-        creators: [{
-          address: root.publicKey,
-          verified: true,
-          share: 100,
-        }],
-        collection: {
-          verified: false,
-          key: root.publicKey,
-        },
-        name: "Updated NFT 1",
-        sellerFeeBasisPoints: 0,
-        uses: null,
-      },
-      false,
-      true,
-    ).accounts({
-        metadataAccount,
-        updateAuthority: root.publicKey,
-        tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
-      }).signers([root]).rpc().catch((err) => {
-        console.log(err);
-      });
+  // it('Update metadata account', async () => {
+  //   const updateMetadataAccountTx = await program.methods.updateMetadataAccount(
+  //     root.publicKey,
+  //     {
+  //       symbol: 'UFT1',
+  //       uri: "https://raw.githubusercontent.com/Coding-and-Crypto/Solana-NFT-Marketplace/master/assets/example.json",
+  //       creators: [{
+  //         address: root.publicKey,
+  //         verified: true,
+  //         share: 100,
+  //       }],
+  //       collection: {
+  //         verified: false,
+  //         key: root.publicKey,
+  //       },
+  //       name: "Updated NFT 1",
+  //       sellerFeeBasisPoints: 0,
+  //       uses: null,
+  //     },
+  //     false,
+  //     true,
+  //   ).accounts({
+  //       metadataAccount,
+  //       updateAuthority: root.publicKey,
+  //       tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+  //     }).signers([root]).rpc().catch((err) => {
+  //       console.log(err);
+  //     });
 
-      console.log('Metadata account updated: ', updateMetadataAccountTx);
-      await new Promise(f => setTimeout(f, 100));
+  //     console.log('Metadata account updated: ', updateMetadataAccountTx);
+  //     await new Promise(f => setTimeout(f, 100));
 
-      const metadataInfo = await Metadata.fromAccountAddress(connection, metadataAccount);
-      console.log(`Metadata by owner:`, metadataInfo.data);
-  });
+  //     const metadataInfo = await Metadata.fromAccountAddress(connection, metadataAccount);
+  //     console.log(`Metadata by owner:`, metadataInfo.data);
+  // });
 
   // it('Set Collection Size', async () => {
   //   collectionAuthorityRecord = findProgramAddressSync(
@@ -304,8 +305,70 @@ describe("nft-collection", () => {
 
       const user2MetadataInfo = await Metadata.fromAccountAddress(connection, user2MetadataAccount);
       console.log(`User 2 metadata by owner:`, user2MetadataInfo);
+
+      const collectionMetadataInfo = await Metadata.fromAccountAddress(connection, metadataAccount);
+      console.log(`Collection metadata metadata by owner:`, collectionMetadataInfo);
+
+      // Set master edition
+      nft2MasterEditionAccount = findProgramAddressSync(
+        [
+          Buffer.from('metadata'),
+          TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+          user2Mint.toBuffer(),
+          Buffer.from('edition'),
+        ],
+        TOKEN_METADATA_PROGRAM_ID,
+      )[0];
+      console.log('Master edition account: ', nft2MasterEditionAccount.toBase58());
+  
+      const masterEditionAccountTx = await program.methods.createMasterEditionAccount(new anchor.BN(3)).accounts({
+        masterEditionAccount: nft2MasterEditionAccount,
+        metadataAccount: user2MetadataAccount, 
+        mint: user2Mint,
+        mintAuthority: user2.publicKey,
+        payer: user2.publicKey,
+        updateAuthority: user2.publicKey,
+        tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      }).signers([user2]).rpc();
+      console.log('Master edition account created: ', masterEditionAccountTx);
+      await new Promise(f => setTimeout(f, 100));
   });
 
-  
+  it("Verify sized collection of user 2 NFT", async () => {
+      collectionAuthorityRecord = findProgramAddressSync(
+      [
+        Buffer.from('metadata'),
+        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+        mint.toBuffer(),
+        Buffer.from('collection_authority'),
+        root.publicKey.toBuffer()
+      ],
+      TOKEN_METADATA_PROGRAM_ID,
+    )[0];
+    console.log('collectionAuthorityRecord account: ', collectionAuthorityRecord.toBase58());
+    const verifyTransactionTx = await program.methods.verifySizedCollection().accounts({    
+      metadataAccount: user2MetadataAccount,
+      collectionAuthority: root.publicKey,
+      payer: root.publicKey,
+      collectionMint: mint,
+      collectionMetadataAccount: metadataAccount,
+      collectionMasterEditionAccount: masterEditionAccount,
+      tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+      // collectionAuthorityRecord: null,
+    }).signers([root]).rpc().catch((err) => {
+      console.log('Error: ', err);
+    });
+
+    console.log('Verify collection done: ', verifyTransactionTx);
+
+    const collectionMetadataInfo = await Metadata.fromAccountAddress(connection, metadataAccount);
+    console.log(`Collection metadata metadata by owner:`, collectionMetadataInfo);
+
+    const user2MetadataInfo = await Metadata.fromAccountAddress(connection, user2MetadataAccount);
+    console.log(`User 2 metadata by owner:`, user2MetadataInfo);
+
+  });
 
 });
